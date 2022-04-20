@@ -15,12 +15,17 @@ import (
 	"time"
 )
 
-type InPostAPI struct {
+const userAgent = "InPost-Mobile/3.7.2-release (iOS 15.1.1; iPhone14,2; pl)"
+const apiHost = "api-inmobile-pl.easypack24.net"
+
+type InPostAPIClient struct {
 	configFilePath string
 	authToken      string
 	refreshToken   string
 	client         *http.Client
 	baseURL        *url.URL
+	getConfig      func() []byte
+	setConfig      func([]byte)
 }
 
 type APIError struct {
@@ -45,8 +50,8 @@ type Point struct {
 			Humidity    float32
 		}
 		Pollutants struct {
-			Pm10 Pollutant
-			Pm25 Pollutant
+			PM10 Pollutant
+			PM25 Pollutant
 		}
 		UpdatedUntil time.Time
 	}
@@ -57,20 +62,21 @@ type Config struct {
 	AuthToken    string `json:"authToken"`
 }
 
-func NewInPostAPI(configFilePath string) *InPostAPI {
-	inpost := new(InPostAPI)
+func NewInPostAPIClient(getConfig func() []byte, setConfig func([]byte)) *InPostAPIClient {
+	inpost := new(InPostAPIClient)
 	inpost.client = &http.Client{Timeout: 10 * time.Second}
 	inpost.baseURL = &url.URL{
 		Scheme: "https",
-		Host:   "api-inmobile-pl.easypack24.net",
+		Host:   apiHost,
 	}
-	inpost.configFilePath = configFilePath
+	inpost.getConfig = getConfig
+	inpost.setConfig = setConfig
 	inpost.ReadConfig()
 
 	return inpost
 }
 
-func (inpost *InPostAPI) GetPoint(pointId string) (*Point, error) {
+func (inpost *InPostAPIClient) GetPoint(pointId string) (*Point, error) {
 	if !inpost.isAuthTokenValid() && inpost.refreshToken != "" {
 		err := inpost.Authenticate()
 		if err != nil {
@@ -103,7 +109,7 @@ func (inpost *InPostAPI) GetPoint(pointId string) (*Point, error) {
 	return data, nil
 }
 
-func (inpost *InPostAPI) Authenticate() error {
+func (inpost *InPostAPIClient) Authenticate() error {
 	if inpost.refreshToken == "" {
 		return errors.New("Please log in again (--login).")
 	}
@@ -137,7 +143,7 @@ func (inpost *InPostAPI) Authenticate() error {
 	return nil
 }
 
-func (inpost *InPostAPI) SendSMSCode(phoneNumber string) error {
+func (inpost *InPostAPIClient) SendSMSCode(phoneNumber string) error {
 	type RequestPayload struct {
 		PhoneNumber string `json:"phoneNumber"`
 	}
@@ -157,7 +163,7 @@ func (inpost *InPostAPI) SendSMSCode(phoneNumber string) error {
 	return nil
 }
 
-func (inpost *InPostAPI) ConfirmSMSCode(phoneNumber string, smsCode string) error {
+func (inpost *InPostAPIClient) ConfirmSMSCode(phoneNumber string, smsCode string) error {
 	type RequestPayload struct {
 		PhoneNumber string `json:"phoneNumber"`
 		SmsCode     string `json:"smsCode"`
@@ -190,30 +196,27 @@ func (inpost *InPostAPI) ConfirmSMSCode(phoneNumber string, smsCode string) erro
 	return nil
 }
 
-func (inpost *InPostAPI) SaveConfig() {
+func (inpost *InPostAPIClient) SaveConfig() {
 	text, _ := json.MarshalIndent(Config{inpost.refreshToken, inpost.authToken}, "", "  ")
-	err := ioutil.WriteFile(inpost.configFilePath, text, 0644)
-	if err != nil {
-		log.Fatalf("Couldn't save config file: %+v", err)
-	}
+	inpost.setConfig(text)
 }
 
-func (inpost *InPostAPI) ReadConfig() {
-	text, _ := ioutil.ReadFile(inpost.configFilePath)
+func (inpost *InPostAPIClient) ReadConfig() {
+	text := inpost.getConfig()
 	config := Config{}
 	json.Unmarshal(text, &config)
 	inpost.refreshToken = config.RefreshToken
 	inpost.authToken = config.AuthToken
 }
 
-func (inpost *InPostAPI) request(method string, apiURL *url.URL, requestBody io.Reader) (*http.Response, []byte) {
+func (inpost *InPostAPIClient) request(method string, apiURL *url.URL, requestBody io.Reader) (*http.Response, []byte) {
 	resolvedURL := inpost.baseURL.ResolveReference(apiURL)
 	req, err := http.NewRequest(method, resolvedURL.String(), requestBody)
 	if err != nil {
 		log.Fatalf("Error occurred: %+v", err)
 	}
 
-	req.Header.Set("User-Agent", "InPost-Mobile/3.7.2-release (iOS 15.1.1; iPhone14,2; pl)")
+	req.Header.Set("User-Agent", userAgent)
 	req.Header.Add("Accept-Language", "en-US")
 
 	if method == "POST" || method == "PUT" {
@@ -239,7 +242,7 @@ func (inpost *InPostAPI) request(method string, apiURL *url.URL, requestBody io.
 	return response, responseBody
 }
 
-func (inpost *InPostAPI) isAuthTokenValid() bool {
+func (inpost *InPostAPIClient) isAuthTokenValid() bool {
 	type TokenPayload struct {
 		Exp int64
 	}

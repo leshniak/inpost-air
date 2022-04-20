@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"log"
 	"math"
 	"os"
@@ -26,14 +27,24 @@ func main() {
 		panic(err)
 	}
 
-	programName := filepath.Base(exec)
-	programNameWithoutExt := strings.TrimSuffix(programName, filepath.Ext(programName))
-	configPath := path.Join(filepath.Dir(exec), fmt.Sprintf("%s.config.json", programNameWithoutExt))
-	inpost := NewInPostAPI(configPath)
+	appName := filepath.Base(exec)
+	appNameWithoutExt := strings.TrimSuffix(appName, filepath.Ext(appName))
+	configPath := path.Join(filepath.Dir(exec), fmt.Sprintf("%s.config.json", appNameWithoutExt))
+	readConfig := func() []byte {
+		json, _ := ioutil.ReadFile(configPath)
+		return json
+	}
+	saveConfig := func(json []byte) {
+		err := ioutil.WriteFile(configPath, json, 0644)
+		if err != nil {
+			log.Fatalf("Couldn't save config file: %+v", err)
+		}
+	}
+	inpost := NewInPostAPIClient(readConfig, saveConfig)
 	args := os.Args[1:]
 
 	if len(args) == 0 {
-		fmt.Printf("Usage: %s [--login] POINT_ID\n", programName)
+		fmt.Printf("Usage: %s [--login] POINT_ID\n", appName)
 		return
 	}
 
@@ -68,11 +79,11 @@ func main() {
 	fmt.Printf("Pressure..........: %d hPa\n", int(math.Round(float64(point.AirSensorData.Weather.Pressure))))
 	fmt.Printf("Humidity..........: %d%%\n", int(math.Round(float64(point.AirSensorData.Weather.Humidity))))
 	fmt.Printf("Dust PM 10........: %.1f μg/m³ (%d%%)\n",
-		point.AirSensorData.Pollutants.Pm10.Value,
-		int(math.Round(float64(point.AirSensorData.Pollutants.Pm10.Percent))))
+		point.AirSensorData.Pollutants.PM10.Value,
+		int(math.Round(float64(point.AirSensorData.Pollutants.PM10.Percent))))
 	fmt.Printf("Dust PM 2.5.......: %.1f μg/m³ (%d%%)\n",
-		point.AirSensorData.Pollutants.Pm25.Value,
-		int(math.Round(float64(point.AirSensorData.Pollutants.Pm25.Percent))))
-	fmt.Printf("Quality...........: %s\n", strings.ToLower(strings.ReplaceAll(point.AirSensorData.AirQuality, "_", " ")))
+		point.AirSensorData.Pollutants.PM25.Value,
+		int(math.Round(float64(point.AirSensorData.Pollutants.PM25.Percent))))
+	fmt.Printf("Air quality.......: %s\n", strings.ToLower(strings.ReplaceAll(point.AirSensorData.AirQuality, "_", " ")))
 	fmt.Printf("Last updated......: %s\n", point.AirSensorData.UpdatedUntil.Local().Format(time.Stamp))
 }
