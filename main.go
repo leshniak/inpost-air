@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -12,13 +13,11 @@ import (
 	"time"
 )
 
-func containsString(list []string, str string) bool {
-	for _, value := range list {
-		if value == str {
-			return true
-		}
-	}
-	return false
+func printUsage(appName string) {
+	output := flag.CommandLine.Output()
+	fmt.Fprintf(output, "Usage: %s [...OPTIONS] POINT_ID\n\n", appName)
+	fmt.Fprintln(output, "Options:")
+	flag.PrintDefaults()
 }
 
 func main() {
@@ -30,6 +29,17 @@ func main() {
 	appName := filepath.Base(exec)
 	appNameWithoutExt := strings.TrimSuffix(appName, filepath.Ext(appName))
 	configPath := path.Join(filepath.Dir(exec), fmt.Sprintf("%s.config.json", appNameWithoutExt))
+
+	flag.Usage = func() {
+		output := flag.CommandLine.Output()
+		fmt.Fprintf(output, "Usage: %s [...OPTIONS] POINT_ID\n\n", appName)
+		fmt.Fprintln(output, "Options:")
+		flag.PrintDefaults()
+	}
+	shouldLogin := flag.Bool("login", false, "login to InPost Mobile")
+	flag.Parse()
+	pointId := strings.ToUpper(flag.Arg(0))
+
 	readConfig := func() []byte {
 		json, _ := ioutil.ReadFile(configPath)
 		return json
@@ -41,29 +51,26 @@ func main() {
 		}
 	}
 	inpost := NewInPostAPIClient(readConfig, saveConfig)
-	args := os.Args[1:]
 
-	if len(args) == 0 {
-		fmt.Printf("Usage: %s [--login] POINT_ID\n", appName)
-		return
+	if pointId == "" {
+		flag.Usage()
+		os.Exit(0)
 	}
 
-	if containsString(args, "--login") {
-		number := 0
+	if *shouldLogin {
+		var number int
 		fmt.Print("Phone number: ")
 		fmt.Scanf("%d", &number)
 		inpost.SendSMSCode(fmt.Sprintf("%d", number))
 
-		smsCode := 0
+		var smsCode int
 		fmt.Print("SMS code: ")
 		fmt.Scanf("%d", &smsCode)
 		inpost.ConfirmSMSCode(fmt.Sprintf("%d", number), fmt.Sprintf("%d", smsCode))
 
 		fmt.Println("Logged in.")
-		return
 	}
 
-	pointId := strings.ToUpper(args[0])
 	point, err := inpost.GetPoint(pointId)
 	if err != nil {
 		log.Fatalf("Couldn't get air sensor data for %s: %+v", pointId, err)
@@ -71,7 +78,7 @@ func main() {
 
 	if !point.AirSensor {
 		fmt.Printf("%s has no air sensor.\n", pointId)
-		return
+		os.Exit(0)
 	}
 
 	fmt.Printf("Point name........: %s\n", point.Name)
