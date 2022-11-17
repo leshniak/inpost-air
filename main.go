@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -37,6 +38,7 @@ func main() {
 		flag.PrintDefaults()
 	}
 	shouldLogin := flag.Bool("login", false, "login to InPost Mobile")
+	printJson := flag.Bool("json", false, "just print output as JSON")
 	flag.Parse()
 	pointId := strings.ToUpper(flag.Arg(0))
 
@@ -81,16 +83,21 @@ func main() {
 		os.Exit(0)
 	}
 
-	fmt.Printf("Point name........: %s\n", point.Name)
-	fmt.Printf("Temperature.......: %.1f °C\n", point.AirSensorData.Weather.Temperature)
-	fmt.Printf("Pressure..........: %d hPa\n", int(math.Round(float64(point.AirSensorData.Weather.Pressure))))
-	fmt.Printf("Humidity..........: %d%%\n", int(math.Round(float64(point.AirSensorData.Weather.Humidity))))
-	fmt.Printf("Dust PM 10........: %.1f μg/m³ (%d%%)\n",
-		point.AirSensorData.Pollutants.PM10.Value,
-		int(math.Round(float64(point.AirSensorData.Pollutants.PM10.Percent))))
-	fmt.Printf("Dust PM 2.5.......: %.1f μg/m³ (%d%%)\n",
-		point.AirSensorData.Pollutants.PM25.Value,
-		int(math.Round(float64(point.AirSensorData.Pollutants.PM25.Percent))))
-	fmt.Printf("Air quality.......: %s\n", strings.ToLower(strings.ReplaceAll(point.AirSensorData.AirQuality, "_", " ")))
-	fmt.Printf("Last updated......: %s\n", point.AirSensorData.UpdatedUntil.Local().Format(time.Stamp))
+	if *printJson {
+		json, _ := json.Marshal(point)
+		fmt.Println(string(json))
+	} else {
+		fmt.Printf("Point name........: %s\n", point.Name)
+		fmt.Printf("Temperature.......: %.1f °C\n", point.AirSensorData.Weather.Temperature)
+		fmt.Printf("Pressure..........: %d hPa\n", int(math.Round(float64(point.AirSensorData.Weather.Pressure))))
+		fmt.Printf("Humidity..........: %d%%\n", int(math.Round(float64(point.AirSensorData.Weather.Humidity))))
+		fmt.Printf("Dust PM 10........: %.1f μg/m³ (%d%%)\n",
+			point.AirSensorData.Pollutants.PM10.Value,
+			int(math.Round(float64(point.AirSensorData.Pollutants.PM10.Percent))))
+		fmt.Printf("Dust PM 2.5.......: %.1f μg/m³ (%d%%)\n",
+			point.AirSensorData.Pollutants.PM25.Value,
+			int(math.Round(float64(point.AirSensorData.Pollutants.PM25.Percent))))
+		fmt.Printf("Air quality.......: %s\n", strings.ToLower(strings.ReplaceAll(point.AirSensorData.AirQuality, "_", " ")))
+		fmt.Printf("Last updated......: %s\n", point.AirSensorData.UpdatedUntil.Local().Format(time.Stamp))
+	}
 }
