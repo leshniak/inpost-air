@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-const userAgent = "InPost-Mobile/3.7.2-release (iOS 15.1.1; iPhone14,2; pl)"
+const userAgent = "InPost-Mobile/3.18.0-release (iOS 17.1.1; iPhone14,2; pl)"
 const apiHost = "api-inmobile-pl.easypack24.net"
 
 type InPostAPIClient struct {
