@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-const userAgent = "InPost-Mobile/3.18.0-release (iOS 17.1.1; iPhone14,2; pl)"
+const userAgent = "InPost-Mobile/3.19.0-release (iOS 17.2; iPhone14,2; pl)"
 const apiHost = "api-inmobile-pl.easypack24.net"
 
 type InPostAPIClient struct {
@@ -84,7 +84,7 @@ func (inpost *InPostAPIClient) GetPoint(pointId string) (*Point, error) {
 		}
 	}
 
-	endpoint := url.URL{Path: fmt.Sprintf("/v2/points/%s", pointId)}
+	endpoint := url.URL{Path: fmt.Sprintf("/v3/points/%s", pointId)}
 	response, body := inpost.request("GET", &endpoint, nil)
 
 	if response.StatusCode != http.StatusOK {
